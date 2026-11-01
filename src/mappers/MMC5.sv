@@ -1,3 +1,4 @@
+// Modified (2026-10-31): expansion RAM moved to its own block with one write port, so Gowin >= 1.9.10 maps it to block RAM.
 // MMC5 Mapper aka "WTF were they thinking?!"
 
 module MMC5(
@@ -164,12 +165,7 @@ always @(posedge clk) begin
 	// Mode 0/1 - Not readable (returns open bus), can only be written while the PPU is rendering (otherwise, 0 is written)
 	// Mode 2 - Readable and writable
 	// Mode 3 - Read-only
-	if (extended_ram_mode != 3) begin
-		if (ppu_ce && !ppu_in_frame && !extended_ram_mode[1] && chr_write && (mirrbits == 2) && chr_ain[13])
-			expansion_ram[chr_ain[9:0]] <= chr_din;
-		else if (ce && prg_write && prg_ain[15:10] == 6'b010111) // $5C00-$5FFF
-			expansion_ram[prg_ain[9:0]] <= (extended_ram_mode[1] || ppu_in_frame) ? prg_din : 8'd0;
-	end
+	// expansion_ram writes moved to the dedicated RAM block below (single write port)
 
 	if (~enable) begin
 		prg_bank_3 <= 7'h7F;
@@ -305,8 +301,23 @@ end
 // 3 - Use as ordinary RAM, write protected
 wire [9:0] exram_read_addr = extended_ram_mode[1] ? prg_ain[9:0] : insplit ? split_addr : chr_ain[9:0];
 
+// One write port + one registered read port, in its own block, so synthesis
+// maps it to block RAM (SDPB). Same behaviour as the two writes it replaces.
+wire exram_we_chr = (extended_ram_mode != 3) && ppu_ce && !ppu_in_frame && !extended_ram_mode[1]
+                    && chr_write && (mirrbits == 2) && chr_ain[13];
+wire exram_we_prg = (extended_ram_mode != 3) && !exram_we_chr && ce && prg_write
+                    && prg_ain[15:10] == 6'b010111; // $5C00-$5FFF
+wire       exram_we    = exram_we_chr | exram_we_prg;
+wire [9:0] exram_waddr = exram_we_chr ? chr_ain[9:0] : prg_ain[9:0];
+wire [7:0] exram_wdata = exram_we_chr ? chr_din : ((extended_ram_mode[1] || ppu_in_frame) ? prg_din : 8'd0);
+
 always @(posedge clk) begin
+	if (exram_we)
+		expansion_ram[exram_waddr] <= exram_wdata;
 	last_read_ram <= expansion_ram[exram_read_addr];
+end
+
+always @(posedge clk) begin
 
 	if ((ppu_cycle[2] == 0) && (ppu_cycle[1] == 0) && ppu_in_frame) begin
 		last_read_exattr <= last_read_ram;
