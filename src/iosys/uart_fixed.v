@@ -189,13 +189,26 @@ parameter ClkFrequency = 25000000;
 parameter Baud = 115200;
 parameter Oversampling = 1;
 
-function integer log2(input integer v); begin log2=0; while(v>>log2) log2=log2+1; end endfunction
-localparam AccWidth = log2(ClkFrequency/Baud)+8;  // +/- 2% max timing error over a byte
+localparam AccWidth = 19;  // fixed 20 bit accumulator
 reg [AccWidth:0] Acc = 0;
-localparam ShiftLimiter = log2(Baud*Oversampling >> (31-AccWidth));  // this makes sure Inc calculation doesn't overflow
-localparam Inc = ((Baud*Oversampling << (AccWidth-ShiftLimiter))+(ClkFrequency>>(ShiftLimiter+1)))/(ClkFrequency>>ShiftLimiter);
-always @(posedge clk) if(enable) Acc <= Acc[AccWidth-1:0] + Inc[AccWidth:0]; else Acc <= Inc[AccWidth:0];
+
+// nand2mario: Inc = (2^AccWidth * Baud * Oversampling + ClkFrequency/2) / ClkFrequency
+//             cast to longint to avoid overflow
+localparam Inc = (longint'(1 << AccWidth) * Baud * Oversampling + ClkFrequency/2) / ClkFrequency;
+
+always @(posedge clk) 
+	if (enable) 
+		Acc <= Acc[AccWidth-1:0] + Inc[AccWidth:0]; 
+	else 
+		Acc <= Inc[AccWidth:0];
+
 assign tick = Acc[AccWidth];
+
+// old fpga4fun code:
+// function integer log2(input integer v); begin log2=0; while(v>>log2) log2=log2+1; end endfunction
+// localparam AccWidth = log2(ClkFrequency/Baud)+8;  // +/- 2% max timing error over a byte
+// localparam ShiftLimiter = log2(Baud*Oversampling >> (31-AccWidth));  // this makes sure Inc calculation doesn't overflow
+// localparam Inc = ((Baud*Oversampling << (AccWidth-ShiftLimiter))+(ClkFrequency>>(ShiftLimiter+1)))/(ClkFrequency>>ShiftLimiter);
 endmodule
 
 
