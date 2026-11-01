@@ -1,5 +1,6 @@
 `define RES_720P
 `define GW_IDE
+`define NANO            // sdram_nes.v: 32-bit on-chip SDRAM
 
 `define PLL_R
 `define LED2
