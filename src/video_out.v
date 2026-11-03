@@ -12,8 +12,9 @@
 // - Menu: textdisp's 32x28 characters (256x224 pixels) at 3x in a fixed 768x672 window,
 //   whatever the game's scaling. While the menu is shown, the game is dimmed to 1/4 and
 //   shows through the menu's black pixels.
-// - Output: 0-255 RGB, or limited range (16-235) with RGB_LIMITED; the AVI InfoFrame must
-//   then declare it.
+// - Output: everything above is on the 0-255 scale. hdmi.sv sends it as limited range
+//   (16-235), declared in the AVI InfoFrame, content type Game: CTA-861 makes limited range
+//   the default for RGB on 720p (a CE format). RGB_LIMITED = 0 sends 0-255, undeclared.
 //
 // The core runs slightly faster than HDMI. Once a frame the core pauses after writing line 0
 // and waits for frame_go, which comes when HDMI is about to show source line 0. The core then
@@ -24,7 +25,7 @@ module video_out #(
     parameter PIX_FMT = 0,              // pixel format: 0 = BGR555 (SNES), 1 = NES palette index
     parameter DW = 15,                  // line buffer pixel width
     parameter AUDIO_RATE = 48000,
-    parameter RGB_LIMITED = 0           // 1: send limited range (16-235)
+    parameter RGB_LIMITED = 1           // 1: send and declare limited range (16-235)
 ) (
     // Core clock domain
     input             clk,
@@ -322,25 +323,11 @@ always @(posedge hclk) begin
         rgb_full <= game;
 end
 
-// Stage 7: what the HDMI encoder sends. With RGB_LIMITED, 0 becomes 16 (black) and 255
-// becomes 235 (white). x * 220 / 256 is within 1 of CTA-861's round(x * 219 / 255) for
-// every x, exact at both ends, and needs only two subtractions: x * 220 = x * 256 - x * 32
-// - x * 4.
-function [7:0] to_limited(input [7:0] x);
-    reg [15:0] p;
-    begin
-        p = {x, 8'd0} - {3'd0, x, 5'd0} - {6'd0, x, 2'd0} + 16'd128;
-        to_limited = 8'd16 + p[15:8];
-    end
-endfunction
-
-function [23:0] limited_rgb(input [23:0] c);
-    limited_rgb = {to_limited(c[23:16]), to_limited(c[15:8]), to_limited(c[7:0])};
-endfunction
-
+// Stage 7: the register the HDMI encoder reads. With RGB_LIMITED the encoder converts it to
+// 16-235 (hdmi.sv, RGB_QUANTIZATION_RANGE).
 reg [23:0] rgb;
 always @(posedge hclk)
-    rgb <= RGB_LIMITED ? limited_rgb(rgb_full) : rgb_full;
+    rgb <= rgb_full;
 
 //
 // HDMI
@@ -359,6 +346,8 @@ hdmi #( .VIDEO_ID_CODE(4),
         .DVI_OUTPUT(0),
         .VIDEO_REFRESH_RATE(60.0),
         .IT_CONTENT(1),
+        .RGB_QUANTIZATION_RANGE(RGB_LIMITED ? 2'b01 : 2'b00),
+        .CONTENT_TYPE(2'b11),     // Game
         .AUDIO_RATE(AUDIO_RATE),
         .AUDIO_BIT_WIDTH(AUDIO_BIT_WIDTH),
         .START_X(0),
