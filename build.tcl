@@ -146,6 +146,7 @@ add_file -type verilog "src/mappers/Namco.sv"
 add_file -type verilog "src/mappers/Sachen.sv"
 add_file -type verilog "src/mappers/Sunsoft.sv"
 add_file -type verilog "src/nes.v"
+add_file -type verilog "src/nes_video.sv"
 add_file -type verilog "src/nes2hdmi.sv"
 add_file -type verilog "src/nestang_top.sv"
 add_file -type verilog "src/ppu.v"
@@ -155,6 +156,7 @@ add_file -type verilog "src/t65/T65_ALU.v"
 add_file -type verilog "src/t65/T65_MCode.v"
 add_file -type verilog "src/t65/T65_Pack.v"
 add_file -type verilog "src/uart_tx_V2.v"
+add_file -type verilog "src/video_out.v"
 
 set_option -synthesis_tool gowinsynthesis
 set_option -top_module nestang_top

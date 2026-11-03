@@ -233,10 +233,11 @@ assign fclk = sys_clk;
 
 wire [31:0] status;
 
+wire video_pause;               // frame lock with HDMI (nes_video, boards with VIDEO_OUT)
 
 // Main NES machine
 NES nes(
-    .clk(clk), .reset_nes(reset_nes), .cold_reset(1'b0),
+    .clk(clk), .reset_nes(reset_nes), .cold_reset(1'b0), .pause(video_pause),
     .sys_type(system_type), .nes_div(nes_ce),
     .mapper_flags(mapper_flags),
     .sample(sample), .color(color),
@@ -352,6 +353,8 @@ GameData game_data(
     .clk(clk), .reset(~sys_resetn), .downloading(loading), 
     .odata(loader_do), .odata_clk(loader_do_valid));
 
+assign video_pause = 1'b0;
+
 `else
 
 // For physical board, there's HDMI, iosys, joypads, and USB
@@ -361,9 +364,25 @@ wire [7:0]  overlay_y;
 wire [14:0] overlay_color;      // BGR5
 
 // HDMI output
+`ifdef VIDEO_OUT
+// Nano 20K, Console 138K: line buffer, frame lock, 3x scaler and fixed menu window (nes_video.sv)
+nes_video u_hdmi (
+    .clk(clk), .resetn(sys_resetn), .running(~reset_nes),
+    .color(color), .cycle(cycle), .scanline(scanline), .sample(sample >> 1),
+    .pause(video_pause),
+    .shape(2'd0),               // 8:7 pixels
+    .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
+    .overlay_color(overlay_color),
+    .hclk(hclk), .hclk5(hclk5),
+    .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p),
+    .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
+);
+`else
+assign video_pause = 1'b0;
+
 nes2hdmi u_hdmi (     // purple: RGB=440064 (010001000_00000000_01100100), BGR5=01100_00000_01000
     .clk(clk), .resetn(sys_resetn),
-    .color(color), .cycle(cycle), 
+    .color(color), .cycle(cycle),
     .scanline(scanline), .sample(sample >> 1),
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
@@ -371,6 +390,7 @@ nes2hdmi u_hdmi (     // purple: RGB=440064 (010001000_00000000_01100100), BGR5=
     .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p),
     .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
 );
+`endif
 
 
 // Connect to BL616 companion MCU for sys module for menu, rom loading...

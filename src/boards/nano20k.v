@@ -1,6 +1,7 @@
 `define RES_720P
 `define GW_IDE
 `define NANO            // sdram_nes.v: 32-bit on-chip SDRAM
+`define VIDEO_OUT       // nestang_top.sv: nes_video (line buffer, frame lock, 3x scaler)
 
 `define PLL_R
 `define LED2

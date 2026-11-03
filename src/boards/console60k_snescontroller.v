@@ -2,8 +2,14 @@
 `define GW_IDE
 `define MEGA60K
 `define PRIMER
+`define CONSOLE
+
+`define USB1
+`define USB2
 
 `define CONTROLLER_SNES
+
+`define VIDEO_OUT       // nestang_top.sv: nes_video (line buffer, frame lock, 3x scaler)
 
 package configPackage;  
 

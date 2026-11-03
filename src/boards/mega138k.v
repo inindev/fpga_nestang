@@ -4,6 +4,8 @@
 
 `define CONTROLLER_DS2
 
+`define VIDEO_OUT       // nestang_top.sv: nes_video (line buffer, frame lock, 3x scaler)
+
 package configPackage;  
 
     // Tang SDRAM v1.2: 2B * 8K * 512 * 4 = 32MB

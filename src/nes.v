@@ -74,6 +74,7 @@ module NES(
 	input         clk,
 	input         reset_nes,
 	input         cold_reset,
+	input         pause,          // 1: hold the whole system (frame lock), in steps of one PPU clock
 	input   [1:0] sys_type,
 	output  [2:0] nes_div,
 	input  [63:0] mapper_flags,
@@ -204,8 +205,26 @@ reg [2:0] cpu_tick_count;
 
 wire skip_ppu_cycle = (cpu_tick_count == 4) && (ppu_tick == 0);
 
+// Frame lock (nes_video.sv): while pause is high the system holds the same way as the
+// de-jitter freeze, for a multiple of 4 cycles (one PPU clock), so the dividers keep their
+// phase with div_sys and the SDRAM controller's clkref.
+reg hold = 0;
+reg [1:0] hold_cnt;
 always @(posedge clk) begin
-	if (~freeze_clocks | ~(div_ppu == (div_ppu_n - 1'b1))) begin
+	if (~hold) begin
+		if (pause && ~freeze_clocks && faux_pixel_cnt == 0 && div_ppu == div_ppu_n - 3'd2) begin
+			hold <= 1'b1;
+			hold_cnt <= 0;
+		end
+	end else begin
+		hold_cnt <= hold_cnt + 1'b1;
+		if (~pause && hold_cnt == 2'd3)
+			hold <= 1'b0;
+	end
+end
+
+always @(posedge clk) begin
+	if (~(freeze_clocks | hold) | ~(div_ppu == (div_ppu_n - 1'b1))) begin
 		if (~skip_ppu_cycle)
 			div_cpu <= cpu_ce || (ppu_ce && div_cpu > div_cpu_n) ? 1'b1 : div_cpu + 1'b1;
 

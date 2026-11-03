@@ -1,8 +1,11 @@
 `define RES_720P
 `define GW_IDE
 `define PRIMER
+`define USB1
 
 `define CONTROLLER_SNES
+
+`define VIDEO_OUT       // nestang_top.sv: nes_video (line buffer, frame lock, 3x scaler)
 
 package configPackage;  
 
