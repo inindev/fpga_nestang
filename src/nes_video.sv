@@ -55,7 +55,8 @@ always @(posedge clk) begin
     end
 end
 
-// Frame lock
+// Frame lock. While the menu is shown the pause is not released, so the game holds at
+// line 1 of its next frame until the menu closes.
 wire frame_go;
 reg  locked = 0;                        // paused once this frame
 always @(posedge clk) begin
@@ -65,7 +66,7 @@ always @(posedge clk) begin
     end else begin
         if (~locked && ~pause && scanline == PAUSE_LINE)
             pause <= 1'b1;
-        if (pause && frame_go) begin
+        if (pause && frame_go && ~overlay) begin
             pause <= 1'b0;
             locked <= 1'b1;
         end
@@ -96,7 +97,8 @@ end
 video_out #(.PIX_FMT(1), .DW(6), .AUDIO_RATE(AUDIO_RATE)) video (
     .clk(clk), .resetn(resetn),
     .pix_we(pix_we), .pix_y(pix_y), .pix_x(pix_x), .pix_data(pix_data),
-    .src_lines(9'd240), .src_active(running), .shape(shape), .frame_go(frame_go),
+    // no game under the menu: the paused game would leave only the 16-line ring buffer
+    .src_lines(9'd240), .src_active(running & ~overlay), .shape(shape), .frame_go(frame_go),
     .overlay(overlay),
     .hclk(hclk), .hclk5(hclk5),
     .clk_audio(clk_audio), .audio_l(audio), .audio_r(audio),
