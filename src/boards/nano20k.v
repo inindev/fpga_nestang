@@ -1,7 +1,9 @@
+// Modified for tangcore (2026-11-04), from fpga_game_consoles: NANO20K added. See git history.
 `define RES_720P
 `define GW_IDE
 `define NANO            // sdram_nes.v: 32-bit on-chip SDRAM
 `define VIDEO_OUT       // nestang_top.sv: nes_video (line buffer, frame lock, 3x scaler)
+`define NANO20K         // nestang_top.sv: onboard RGB LED off, audio amp off
 
 `define PLL_R
 `define LED2

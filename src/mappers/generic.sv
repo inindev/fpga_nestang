@@ -1,3 +1,5 @@
+// Modified for tangcore (2026-11-04): Mapper28's unconnected prg_allow output port removed
+// (it duplicated the internal wire; Verilator rejects it). See git history.
 // These mappers are simple generic mappers which can eventually be combined into a single module with parameters
 
 // No mapper chip
@@ -897,7 +899,6 @@ module Mapper28(
 	input        prg_write,   // prg write
 	input  [7:0] prg_din,     // prg data in
 	inout  [7:0] prg_dout_b,  // prg data out
-	output       prg_allow,
 	inout        prg_allow_b, // Enable access to memory for the specified operation.
 	input [13:0] chr_ain,     // chr address in
 	inout [21:0] chr_aout_b,  // chr address out

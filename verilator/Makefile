@@ -1,6 +1,6 @@
 N=nestang_top
 D=../src
-SRCS=$D/verilator/config.sv $D/verilator/sdram_sim.v $D/apu.v $D/cart.sv $D/compat.v $D/dpram.v \
+SRCS=$D/verilator/config.sv $D/verilator/sdram_sim.v $D/apu.v $D/cart.sv $D/dpram.v \
 	$D/EEPROM_24C0x.sv $D/nestang_top.sv $D/nes.v $D/ppu.v \
 	$D/t65/T65_Pack.v $D/t65/T65_ALU.v $D/t65/T65_MCode.v $D/t65/T65.v \
 	$D/game_loader.v $D/game_data.v \
@@ -9,7 +9,7 @@ SRCS=$D/verilator/config.sv $D/verilator/sdram_sim.v $D/apu.v $D/cart.sv $D/comp
 	$D/mappers/Sachen.sv $D/mappers/Sunsoft.sv
 
 DEPS=
-INCLUDES=-I$D -I$D/tang_nano_20k
+INCLUDES=-I$D
 CFLAGS_SDL=$(shell sdl2-config --cflags) -O3
 LIBS_SDL=$(shell sdl2-config --libs)
 
@@ -23,7 +23,7 @@ verilate: ./obj_dir/V$N.cpp
 	@echo
 	@echo "### VERILATE ####"
 	mkdir -p obj_dir
-	verilator --top-module $N -Wno-WIDTHEXPAND -Wno-CASEOVERLAP --trace-fst -cc -O3 --exe -CFLAGS "$(CFLAGS_SDL)" -LDFLAGS "$(LIBS_SDL)" $(INCLUDES) $(SRCS) sim_main.cpp
+	verilator --top-module $N -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-CASEOVERLAP --trace-fst -cc -O3 --exe -CFLAGS "$(CFLAGS_SDL)" -LDFLAGS "$(LIBS_SDL)" $(INCLUDES) $(SRCS) sim_main.cpp
 
 ./obj_dir/V$N: verilate
 	@echo

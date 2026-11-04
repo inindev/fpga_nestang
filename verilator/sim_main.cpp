@@ -1,3 +1,5 @@
+// Modified for tangcore (2026-11-04): end the simulation at end of input instead of
+// looping on it. See git history.
 #include <cstdio>
 #include <iostream>
 #include <SDL.h>
@@ -167,7 +169,10 @@ int main(int argc, char** argv, char** env) {
 		printf("  s      - simulate 10 million clock cycles\n");
 		do {
 			string line;
-			std::getline(cin, line);
+			if (!std::getline(cin, line)) {		// end of input: end the simulation
+				done = true;
+				break;
+			}
 			vector<string> ss = tokenize(line);
 			if (ss.size() == 0) continue;
 			transform(ss[0].begin(), ss[0].end(), ss[0].begin(), ::tolower); 
