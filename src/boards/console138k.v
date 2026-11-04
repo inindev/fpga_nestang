@@ -4,6 +4,7 @@
 `define PRIMER
 `define CONSOLE
 `define VIDEO_OUT       // nestang_top.sv: nes_video (line buffer, frame lock, 3x scaler)
+`define VIDEO_FRAMEBUFFER   // video_out.v: full frame, shown under the menu
 
 `define USB1
 `define USB2

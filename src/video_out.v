@@ -12,6 +12,10 @@
 // - Menu: textdisp's 32x28 characters (256x224 pixels) at 3x in a fixed 768x672 window,
 //   whatever the game's scaling. While the menu is shown, the game is dimmed to 1/4 and
 //   shows through the menu's black pixels.
+// - Frame buffer (FRAMEBUFFER = 1, boards with the block RAM for it): every pixel is also
+//   kept in a full 256x240 frame, so the paused game can be shown under the menu. NES keeps
+//   the 6-bit palette index, SNES its 15-bit color (FB_RGB15 = 1) or 12-bit RGB (4 bits per
+//   color, on boards with less block RAM; it is only shown dimmed).
 // - Output: everything above is on the 0-255 scale. hdmi.sv sends it as limited range
 //   (16-235), declared in the AVI InfoFrame, content type Game: CTA-861 makes limited range
 //   the default for RGB on 720p (a CE format). RGB_LIMITED = 0 sends 0-255, undeclared.
@@ -25,7 +29,9 @@ module video_out #(
     parameter PIX_FMT = 0,              // pixel format: 0 = BGR555 (SNES), 1 = NES palette index
     parameter DW = 15,                  // line buffer pixel width
     parameter AUDIO_RATE = 48000,
-    parameter RGB_LIMITED = 1           // 1: send and declare limited range (16-235)
+    parameter RGB_LIMITED = 1,          // 1: send and declare limited range (16-235)
+    parameter FRAMEBUFFER = 0,          // 1: keep a full frame to show under the menu
+    parameter FB_RGB15 = 0              // SNES frame buffer: 1 = 15-bit color, 0 = 12-bit
 ) (
     // Core clock domain
     input             clk,
@@ -81,6 +87,33 @@ wire [11:0]  rd_addr;
 reg [DW-1:0] q;
 always @(posedge hclk)
     q <= mem[rd_addr];
+
+//
+// Frame buffer: 240 lines of 256 pixels, read instead of the ring buffer while the menu is
+// shown. Same read latency as the ring buffer, so the pipeline below is unchanged.
+//
+localparam FW = PIX_FMT == 1 ? 6 : FB_RGB15 ? 15 : 12;   // NES palette index, BGR555, or RGB444
+wire [15:0]  fb_rd_addr;
+reg [FW-1:0] fq;
+generate
+if (FRAMEBUFFER) begin : g_fb
+    reg [FW-1:0] fb [0:61439];
+    wire [FW-1:0] fb_data;
+    if (PIX_FMT == 1) begin : g_fb_nes
+        assign fb_data = pix_data[5:0];
+    end else if (FB_RGB15) begin : g_fb_snes15
+        assign fb_data = pix_data[14:0];
+    end else begin : g_fb_snes12
+        assign fb_data = {pix_data[4:1], pix_data[9:6], pix_data[14:11]};
+    end
+    always @(posedge clk)
+        if (pix_we && pix_y < 8'd240) fb[{pix_y, pix_x}] <= fb_data;
+    always @(posedge hclk)
+        fq <= fb[fb_rd_addr];
+end else begin : g_nofb
+    always @* fq = 0;
+end
+endgenerate
 
 //
 // Settings from the core clock domain. They change rarely, so two flip-flops per bit are
@@ -173,6 +206,7 @@ reg        take_n;                      // the next output pixel moves to the ne
 wire signed [12:0] t = $signed({2'b0, acc}) + 13'sd256 - $signed({2'b0, geo_w});
 
 assign rd_addr = {sy[3:0], pre ? 8'd0 : bidx[7:0]};
+assign fb_rd_addr = {sy, pre ? 8'd0 : bidx[7:0]};
 
 reg       s1_on, s1_take;
 reg [7:0] s1_w;
@@ -201,15 +235,22 @@ always @(posedge hclk) begin
 end
 
 //
-// Stage 1: q holds the source pixel read in stage 0. Decode it to RGB888.
+// Stage 1: q (or fq under the menu) holds the source pixel read in stage 0. Decode it to
+// RGB888.
 //
+wire use_fb = FRAMEBUFFER && cfg_overlay;
 reg [23:0] q_rgb;
 generate
 if (PIX_FMT == 1) begin : g_nes
-    always @* q_rgb = nes_palette(q[5:0]);
-end else begin : g_snes
+    always @* q_rgb = nes_palette(use_fb ? fq[5:0] : q[5:0]);
+end else if (FB_RGB15) begin : g_snes15
     // BGR555 to RGB888, low bits repeated so that 31 becomes 255
-    always @* q_rgb = {q[4:0], q[4:2], q[9:5], q[9:7], q[14:10], q[14:12]};
+    wire [14:0] p = use_fb ? fq : q;
+    always @* q_rgb = {p[4:0], p[4:2], p[9:5], p[9:7], p[14:10], p[14:12]};
+end else begin : g_snes12
+    // BGR555 to RGB888, low bits repeated so that 31 becomes 255; RGB444 likewise
+    always @* q_rgb = use_fb ? {fq[11:8], fq[11:8], fq[7:4], fq[7:4], fq[3:0], fq[3:0]}
+                             : {q[4:0], q[4:2], q[9:5], q[9:7], q[14:10], q[14:12]};
 end
 endgenerate
 

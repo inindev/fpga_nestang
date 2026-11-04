@@ -94,11 +94,18 @@ always @(posedge hclk) begin
     audio <= audio_s1;
 end
 
-video_out #(.PIX_FMT(1), .DW(6), .AUDIO_RATE(AUDIO_RATE)) video (
+// With the frame buffer the paused game is shown under the menu; without it, the 16-line
+// ring buffer has no full picture, so there is no game under the menu.
+`ifdef VIDEO_FRAMEBUFFER
+localparam FRAMEBUFFER = 1;
+`else
+localparam FRAMEBUFFER = 0;
+`endif
+
+video_out #(.PIX_FMT(1), .DW(6), .AUDIO_RATE(AUDIO_RATE), .FRAMEBUFFER(FRAMEBUFFER)) video (
     .clk(clk), .resetn(resetn),
     .pix_we(pix_we), .pix_y(pix_y), .pix_x(pix_x), .pix_data(pix_data),
-    // no game under the menu: the paused game would leave only the 16-line ring buffer
-    .src_lines(9'd240), .src_active(running & ~overlay), .shape(shape), .frame_go(frame_go),
+    .src_lines(9'd240), .src_active(running & (FRAMEBUFFER || ~overlay)), .shape(shape), .frame_go(frame_go),
     .overlay(overlay),
     .hclk(hclk), .hclk5(hclk5),
     .clk_audio(clk_audio), .audio_l(audio), .audio_r(audio),
