@@ -75,7 +75,8 @@ always @(posedge clk) begin
     end
 end
 
-// Audio: 48 kHz sample clock, sample brought into hclk as in nes2hdmi.sv
+// Audio: 48 kHz sample clock in hclk; nes_audio_hdmi brings the sample into hclk whole and
+// removes its DC offset
 localparam AUDIO_CLK_DELAY = 74250 * 1000 / AUDIO_RATE / 2;
 reg [$clog2(AUDIO_CLK_DELAY)-1:0] audio_divider = 0;
 reg clk_audio = 0;
@@ -88,11 +89,11 @@ always @(posedge hclk) begin
     end
 end
 
-reg [15:0] audio_s1, audio;
-always @(posedge hclk) begin
-    audio_s1 <= sample;
-    audio <= audio_s1;
-end
+wire [15:0] audio;                      // signed, silence = 0
+nes_audio_hdmi nes_audio (
+    .clk(clk), .sample(sample),
+    .clk_pixel(hclk), .clk_audio(clk_audio), .audio(audio)
+);
 
 // With the frame buffer the paused game is shown under the menu; without it, the 16-line
 // ring buffer has no full picture, so there is no game under the menu.

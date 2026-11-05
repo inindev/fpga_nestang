@@ -43,6 +43,8 @@
         <File path="src/nes.v" type="file.verilog" enable="1"/>
         <File path="src/nes2hdmi.sv" type="file.verilog" enable="1"/>
         <File path="src/nes_video.sv" type="file.verilog" enable="1"/>
+        <File path="src/nes_audio_hdmi.sv" type="file.verilog" enable="1"/>
+        <File path="src/audio_cdc.v" type="file.verilog" enable="1"/>
         <File path="src/nestang_top.sv" type="file.verilog" enable="1"/>
         <File path="src/pll/gowin_pll_27.v" type="file.verilog" enable="1"/>
         <File path="src/pll/gowin_pll_hdmi.v" type="file.verilog" enable="1"/>

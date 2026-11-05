@@ -411,7 +411,7 @@ wire [14:0] overlay_color;      // BGR5
 // Nano 20K, Console 138K: line buffer, frame lock, 3x scaler and fixed menu window (nes_video.sv)
 nes_video u_hdmi (
     .clk(clk), .resetn(sys_resetn), .running(~reset_nes),
-    .color(color), .cycle(cycle), .scanline(scanline), .sample(sample >> 1),
+    .color(color), .cycle(cycle), .scanline(scanline), .sample(sample),
     .pause(video_pause),
     .shape(2'd0),               // 8:7 pixels
     .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
