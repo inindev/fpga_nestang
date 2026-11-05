@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# generate LOGO lines for gowin_dpb_menu.v
+# write the logo rows to logo.txt, for scripts/font_glyphs.py --logo in tangcore
 
 # 72 columns, 14 rows
 LOGO = ["000011110000110011111111001111001111111110000000000000000000000000000000",
@@ -19,29 +19,8 @@ LOGO = ["00001111000011001111111100111100111111111000000000000000000000000000000
         "000000000000000000000000000000000000000000000000000000000000000000000000",
         ]
 
-# gowin_dpb_menu.v's logo format is 9 bytes per row, 14 rows, in total 126 bytes
-
-r = []
-
-for i in range(126):
-    j = i % 9
-    s = LOGO[i // 9][j*8 : j*8+8]
-    b = 0
-    for k in range(8):
-        if s[k] == '1':
-            b += 1 << k
-    # print("{} -> {:02X}".format(s, b))
-    r.append(b)
-
-assert(len(r) == 126)
-
-r.append(0)
-r.append(0)
-
-for i in range(4):
-    off = i * 32
-    print("defparam dpb_inst_0.INIT_RAM_{:02X} = 256'h".format(0x1C+i), end='')
-    for j in range(31, -1, -1):     # 31, 30, ...
-        print("{:02X}".format(r[off+j]), end='')
-    print()
-
+# The rows go into a core's iosys/gowin_dpb_menu.v through tangcore's font script
+with open("logo.txt", "w") as f:
+    f.write("\n".join(LOGO) + "\n")
+print("\nLogo saved as logo.txt. To use it for a core, from the tangcore folder:")
+print("    scripts/font_glyphs.py --logo <core> logo.txt")

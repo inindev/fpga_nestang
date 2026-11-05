@@ -16,3 +16,7 @@ set_multicycle_path 1 -start -hold -from [get_clocks {fclk}] -to [get_clocks {cl
 
 # report_timing -hold -from_clock [get_clocks {clk*}] -to_clock [get_clocks {clk*}] -max_paths 25 -max_common_paths 1
 # report_timing -setup -from_clock [get_clocks {clk*}] -to_clock [get_clocks {clk*}] -max_paths 25 -max_common_paths 1
+
+// Clock crossings: a register named *_meta is the first stage of a synchronizer (iosys's
+// UART input, usb_hid_sync's USB buttons). The path into it crosses clocks on purpose.
+set_false_path -to [get_regs {*_meta*}]

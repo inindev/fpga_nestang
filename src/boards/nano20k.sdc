@@ -14,3 +14,7 @@ set_multicycle_path 2 -end -hold -from [get_clocks {clk}] -to [get_clocks {fclk}
 // SDRAM to NES/iosys, 2 fclk cycles
 set_multicycle_path 2 -start -setup -from [get_clocks {fclk}] -to [get_clocks {clk}]
 set_multicycle_path 1 -start -hold -from [get_clocks {fclk}] -to [get_clocks {clk}]
+
+// Clock crossings: a register named *_meta is the first stage of a synchronizer (iosys's
+// UART input, usb_hid_sync's USB buttons). The path into it crosses clocks on purpose.
+set_false_path -to [get_regs {*_meta*}]
