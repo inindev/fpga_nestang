@@ -11,7 +11,9 @@
 //   produced), 768 for square pixels, 4 * lines for 4:3.
 // - Menu: textdisp's 32x28 characters (256x224 pixels) at 3x in a fixed 768x672 window,
 //   whatever the game's scaling. While the menu is shown, the game is dimmed to 1/4 and
-//   shows through the menu's black pixels.
+//   shows through the menu's black pixels. Strip (osd_strip, the volume bar): only a 128x16
+//   pixel area of the window, lit pixels white, on a band over the running game (dimmed to
+//   1/8 with a green tint, as the Apple IIe core's OSD); the rest of the game is untouched.
 // - Frame buffer (FRAMEBUFFER = 1, boards with the block RAM for it): every pixel is also
 //   kept in a full 256x240 frame, so the paused game can be shown under the menu. NES keeps
 //   the 6-bit palette index, SNES its 15-bit color (FB_RGB15 = 1) or 12-bit RGB (4 bits per
@@ -45,6 +47,7 @@ module video_out #(
     input      [1:0]  shape,            // pixel shape: 0 = 8:7, 1 = square, 2 = 4:3
     output reg        frame_go,         // one-cycle pulse: HDMI is about to show source line 0
     input             overlay,          // show the menu
+    input             osd_strip,        // with overlay: only the strip (volume bar), game running
 
     // HDMI clock domain
     input             hclk,             // 74.25 MHz pixel clock
@@ -52,6 +55,7 @@ module video_out #(
     input             clk_audio,
     input      [15:0] audio_l,
     input      [15:0] audio_r,
+    input      [3:0]  volume,           // master volume 0-10, any clock (hdmi.sv syncs it)
 
     // Menu (textdisp): position in, BGR5 color out 2 cycles later
     output reg [7:0]  overlay_x,
@@ -126,6 +130,11 @@ wire       cfg_overlay = cfg_s2[12];
 wire       cfg_active  = cfg_s2[11];
 wire [8:0] cfg_lines   = cfg_s2[10:2];
 wire [1:0] cfg_shape   = cfg_s2[1:0];
+
+// osd_strip from the core clock domain: two flip-flops, the first *_meta
+reg strip_meta, cfg_strip;
+always @(posedge hclk)
+    {cfg_strip, strip_meta} <= {strip_meta, osd_strip};
 
 // Picture geometry (power-up values: 224 lines, 8:7)
 reg [8:0]  geo_v    = 9'd224;           // source lines
@@ -238,7 +247,7 @@ end
 // Stage 1: q (or fq under the menu) holds the source pixel read in stage 0. Decode it to
 // RGB888.
 //
-wire use_fb = FRAMEBUFFER && cfg_overlay;
+wire use_fb = FRAMEBUFFER && cfg_overlay && ~cfg_strip;     // the game is paused
 reg [23:0] q_rgb;
 generate
 if (PIX_FMT == 1) begin : g_nes
@@ -316,6 +325,12 @@ end
 //
 localparam [10:0] MENU_X0 = 11'd256;    // window left edge
 localparam [9:0]  MENU_Y0 = 10'd24;     // window top edge
+// Strip (osd_strip, the volume bar): text columns 8-23 of rows 23-24, 128x16 pixels (the
+// firmware's OVERLAY_STRIP_*), on a band 2 pixels (6 output pixels) wider on every side
+localparam [10:0] STRIP_X0 = MENU_X0 + 11'd192;     // column 8
+localparam [10:0] STRIP_X1 = MENU_X0 + 11'd576;     // after column 23
+localparam [9:0]  STRIP_Y0 = MENU_Y0 + 10'd552;     // row 23
+localparam [9:0]  STRIP_Y1 = MENU_Y0 + 10'd600;     // after row 24
 
 reg [1:0] mx_ph, my_ph;
 always @(posedge hclk) begin
@@ -346,6 +361,16 @@ reg [4:0] menu_win_d;
 always @(posedge hclk)
     menu_win_d <= {menu_win_d[3:0], menu_win0};
 wire menu_win5 = menu_win_d[4];
+wire strip_win0 = hpos >= STRIP_X0 && hpos < STRIP_X1 && cy >= STRIP_Y0 && cy < STRIP_Y1;
+wire band_win0 = hpos >= STRIP_X0 - 11'd6 && hpos < STRIP_X1 + 11'd6 &&
+                 cy >= STRIP_Y0 - 10'd6 && cy < STRIP_Y1 + 10'd6;
+reg [4:0] strip_win_d, band_win_d;
+always @(posedge hclk) begin
+    strip_win_d <= {strip_win_d[3:0], strip_win0};
+    band_win_d <= {band_win_d[3:0], band_win0};
+end
+wire strip_win5 = strip_win_d[4];
+wire band_win5 = band_win_d[4];
 
 // BGR5 to RGB888, low bits repeated so that 31 becomes 255
 wire [23:0] menu_rgb = {overlay_color[4:0],   overlay_color[4:2],
@@ -357,9 +382,12 @@ reg [23:0] rgb_full;
 always @(posedge hclk) begin
     reg [23:0] game;
     game = on5 && cfg_active ? g5 : 24'h000000;
-    if (cfg_overlay)
+    if (cfg_overlay && ~cfg_strip)
         rgb_full <= menu_win5 && overlay_color != 15'd0 ? menu_rgb
                   : {2'b0, game[23:18], 2'b0, game[15:10], 2'b0, game[7:2]};
+    else if (cfg_overlay && band_win5)
+        rgb_full <= strip_win5 && overlay_color != 15'd0 ? 24'hFFFFFF
+                  : {3'b000, game[23:19], 3'b010, game[15:11], 3'b000, game[7:3]};
     else
         rgb_full <= game;
 end
@@ -402,6 +430,7 @@ hdmi (  .clk_pixel_x5(hclk5),
         // hclk5 and reports a recovery failure.
         .reset(~resetn),
         .audio_sample_word(audio_sample_word),
+        .volume(volume),
         .tmds(tmds),
         .tmds_clock(tmds_clock),
         .cx(cx),

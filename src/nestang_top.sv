@@ -389,6 +389,7 @@ end
 // Peripherals
 ///////////////////////////
 
+wire [3:0] volume;              // master volume, iosys -> HDMI encoder
 `ifdef VERILATOR
 
 // For verilator, the only peripheral is the compiled-in game data 
@@ -402,6 +403,7 @@ assign video_pause = 1'b0;
 
 // For physical board, there's HDMI, iosys, joypads, and USB
 wire overlay;                   // iosys controls overlay
+wire osd_strip;                 // with overlay: volume bar strip, the game keeps running
 wire [7:0] overlay_x;
 wire [7:0]  overlay_y;
 wire [14:0] overlay_color;      // BGR5
@@ -412,9 +414,10 @@ wire [14:0] overlay_color;      // BGR5
 nes_video u_hdmi (
     .clk(clk), .resetn(sys_resetn), .running(~reset_nes),
     .color(color), .cycle(cycle), .scanline(scanline), .sample(sample),
+    .volume(volume),
     .pause(video_pause),
     .shape(2'd0),               // 8:7 pixels
-    .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y),
+    .overlay(overlay), .osd_strip(osd_strip), .overlay_x(overlay_x), .overlay_y(overlay_y),
     .overlay_color(overlay_color),
     .hclk(hclk), .hclk5(hclk5),
     .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p),
@@ -441,9 +444,11 @@ iosys_bl616 #(.COLOR_LOGO(15'b01100_00000_01000), .FREQ(21_492_000), .CORE_ID(1)
     sys_inst (
     .clk(clk), .hclk(hclk), .resetn(sys_resetn),
 
-    .overlay(overlay), .overlay_x(overlay_x), .overlay_y(overlay_y), .overlay_color(overlay_color),
+    .overlay(overlay), .osd_strip(osd_strip),
+    .overlay_x(overlay_x), .overlay_y(overlay_y), .overlay_color(overlay_color),
     .joy1(joy1_btns | joy_usb1), .joy2(joy2_btns | joy_usb2),
     .hid1(hid1), .hid2(hid2),
+    .volume(volume),
     .uart_tx(UART_TXD), .uart_rx(UART_RXD),
 
     .rom_loading(loading), .rom_do(loader_do), .rom_do_valid(loader_do_valid)

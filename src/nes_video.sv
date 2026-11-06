@@ -16,11 +16,13 @@ module nes_video (
     input      [8:0]  cycle,
     input      [8:0]  scanline,
     input      [15:0] sample,
+    input [3:0] volume,       // master volume 0-10 from iosys (hdmi.sv brings it into the pixel clock)
     output reg        pause = 0,        // hold the NES (frame lock)
 
     // Settings and menu (iosys)
     input      [1:0]  shape,
     input             overlay,
+    input             osd_strip,        // with overlay: volume bar strip, the game keeps running
     output     [7:0]  overlay_x,
     output     [7:0]  overlay_y,
     input      [14:0] overlay_color,    // BGR5
@@ -56,7 +58,8 @@ always @(posedge clk) begin
 end
 
 // Frame lock. While the menu is shown the pause is not released, so the game holds at
-// line 1 of its next frame until the menu closes.
+// line 1 of its next frame until the menu closes. Not for the strip (volume bar).
+wire menu = overlay & ~osd_strip;
 wire frame_go;
 reg  locked = 0;                        // paused once this frame
 always @(posedge clk) begin
@@ -66,7 +69,7 @@ always @(posedge clk) begin
     end else begin
         if (~locked && ~pause && scanline == PAUSE_LINE)
             pause <= 1'b1;
-        if (pause && frame_go && ~overlay) begin
+        if (pause && frame_go && ~menu) begin
             pause <= 1'b0;
             locked <= 1'b1;
         end
@@ -106,10 +109,11 @@ localparam FRAMEBUFFER = 0;
 video_out #(.PIX_FMT(1), .DW(6), .AUDIO_RATE(AUDIO_RATE), .FRAMEBUFFER(FRAMEBUFFER)) video (
     .clk(clk), .resetn(resetn),
     .pix_we(pix_we), .pix_y(pix_y), .pix_x(pix_x), .pix_data(pix_data),
-    .src_lines(9'd240), .src_active(running & (FRAMEBUFFER || ~overlay)), .shape(shape), .frame_go(frame_go),
-    .overlay(overlay),
+    .src_lines(9'd240), .src_active(running & (FRAMEBUFFER || ~menu)), .shape(shape), .frame_go(frame_go),
+    .overlay(overlay), .osd_strip(osd_strip),
     .hclk(hclk), .hclk5(hclk5),
     .clk_audio(clk_audio), .audio_l(audio), .audio_r(audio),
+    .volume(volume),
     .overlay_x(overlay_x), .overlay_y(overlay_y), .overlay_color(overlay_color),
     .tmds_clk_n(tmds_clk_n), .tmds_clk_p(tmds_clk_p), .tmds_d_n(tmds_d_n), .tmds_d_p(tmds_d_p)
 );
